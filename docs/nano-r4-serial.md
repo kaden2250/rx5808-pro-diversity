@@ -113,3 +113,31 @@ the raw value.
    > Board > Boards Manager), which also covers the Nano R4.
 2. Select **Arduino Nano R4** as the board.
 3. Open `src/rx5808-nano-r4-serial/rx5808-nano-r4-serial.ino` and upload.
+
+## Logging to CSV
+
+`tools/rx5808_serial_logger.py` connects to the board over serial and
+automatically saves everything to disk:
+
+- a `.log` file with every line the board sends, prefixed with a host-side
+  timestamp (useful for debugging - includes `READY`/`OK`/`ERR` lines too)
+- a `.csv` file with just the `DATA`/`SWEEP`/`BEST` rows, ready to open in a
+  spreadsheet or load with pandas
+
+Anything you type into the script is forwarded to the board as a command, so
+it also works as an interactive console.
+
+```sh
+pip install -r tools/requirements.txt
+
+# macOS/Linux, port name varies (check `ls /dev/tty.*` or `/dev/ttyACM*`)
+python3 tools/rx5808_serial_logger.py --port /dev/ttyACM0 --stream
+
+# Windows
+python3 tools/rx5808_serial_logger.py --port COM5 --stream
+```
+
+`--stream` sends `STREAM` automatically on connect. Files are written to
+`logs/rx5808_<timestamp>.csv` and `.log` by default (override with
+`--outdir`). Press Ctrl+C to stop; both files are flushed after every line
+so they're safe to read while still running.
