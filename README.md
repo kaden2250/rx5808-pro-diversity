@@ -81,10 +81,19 @@ For more information on specific hardware implementations:
 1. [OLED Version - Arduino Nano](/docs/oled-arduino-nano.md)
 3. [rx5808 SPI modification](/docs/rx5808-spi-mod.md)
 6. [Voltage Monitoring](/docs/voltage-monitoring.md)
+7. [Arduino Nano R4 - Headless Serial Firmware](/docs/nano-r4-serial.md)
 
 # Firmware
 The firmware is constantly being improved please refer to the release history for more detailed information on improvements.
 [Release History](https://github.com/sheaivey/rx5808-pro-diversity/releases)
+
+There is also a separate, minimal firmware (`src/rx5808-nano-r4-serial`) for
+the **Arduino Nano R4**, which uses a different (non-AVR) microcontroller. It
+drops the OLED/buttons/EEPROM entirely in favor of a serial command
+interface (over USB and TX/RX) that streams frequency, RSSI, and a
+timestamp, for a single receiver. See
+[Arduino Nano R4 - Headless Serial Firmware](/docs/nano-r4-serial.md) for
+wiring, the command protocol, and flashing instructions.
 
 # Contributing
 Any contributions are welcome!
