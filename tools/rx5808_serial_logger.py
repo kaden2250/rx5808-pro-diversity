@@ -5,11 +5,11 @@ Serial logger for the rx5808-nano-r4-serial firmware
 
 Connects to the Nano R4 over serial, and for every line it sends:
   - appends it verbatim (with a host-side timestamp) to a .log file
-  - parses DATA/SWEEP/BEST/CHECK lines into rows in a .csv file
+  - parses DATA/SWEEP/BEST/WORST/CHECK lines into rows in a .csv file
 
 Also forwards anything you type at the terminal to the board as a command
-(e.g. "CHANNEL A4", "STREAM", "SWEEP", "SCAN BEST", "CHECK"), so this
-doubles as an interactive console.
+(e.g. "CHANNEL A4", "STREAM", "SWEEP", "SCAN BEST", "SCAN WORST", "CHECK"),
+so this doubles as an interactive console.
 
 Usage:
     python3 rx5808_serial_logger.py --port /dev/ttyACM0
@@ -60,7 +60,7 @@ def parse_line(line):
             "rssi_percent": fields[5],
         }
 
-    if tag in ("SWEEP", "BEST") and len(fields) == 6 and fields[1].isdigit():
+    if tag in ("SWEEP", "BEST", "WORST") and len(fields) == 6 and fields[1].isdigit():
         return {
             "device_millis": "",
             "type": tag,
@@ -154,9 +154,10 @@ def main():
 
         print(f"Connected to {args.port} @ {args.baud} baud")
         print(f"Logging raw lines to {log_path}")
-        print(f"Logging DATA/SWEEP/BEST rows to {csv_path}")
+        print(f"Logging DATA/SWEEP/BEST/WORST rows to {csv_path}")
         print("Type a command and press enter to send it to the board "
-              "(e.g. CHANNEL A4, STREAM, SWEEP, SCAN BEST). Ctrl+C to stop.")
+              "(e.g. CHANNEL A4, STREAM, SWEEP, SCAN BEST, SCAN WORST). "
+              "Ctrl+C to stop.")
 
         if args.stream:
             ser.write(b"STREAM\n")

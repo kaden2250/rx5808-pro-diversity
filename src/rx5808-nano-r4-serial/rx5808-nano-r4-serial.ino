@@ -310,10 +310,12 @@ static void emitCheckLine(const char *role, uint8_t band, uint8_t channel, uint1
 // === Commands ==================================================================
 
 // Tunes across every channel, taking an RSSI reading at each, and returns the
-// top 5 (by raw RSSI) sorted from strongest to weakest. Restores whatever
-// channel was tuned before the sweep started.
-static uint8_t performSweep(SweepResult top[5]) {
+// top 5 (by raw RSSI) sorted from strongest to weakest. If worstOut is
+// given, also fills it in with the single weakest channel found. Restores
+// whatever channel was tuned before the sweep started.
+static uint8_t performSweep(SweepResult top[5], SweepResult *worstOut = NULL) {
     uint8_t topCount = 0;
+    bool worstSet = false;
     uint8_t savedBand = currentBand;
     uint8_t savedChannel = currentChannel;
 
@@ -333,6 +335,11 @@ static uint8_t performSweep(SweepResult top[5]) {
                 if (topCount < 5) {
                     topCount++;
                 }
+            }
+
+            if (worstOut != NULL && (!worstSet || raw < worstOut->rssiRaw)) {
+                *worstOut = { b, c, raw };
+                worstSet = true;
             }
         }
     }
@@ -392,6 +399,22 @@ static void handleScanBestCommand() {
         delay(CHANNEL_SETTLE_MS);
         emitSweepLine("BEST", 1, top[0]);
     }
+
+    streaming = wasStreaming;
+}
+
+static void handleScanWorstCommand() {
+    bool wasStreaming = streaming;
+    streaming = false;
+    printLineBoth("SCAN,START");
+
+    SweepResult top[5];
+    SweepResult worst;
+    performSweep(top, &worst);
+
+    tuneTo(worst.band, worst.channel);
+    delay(CHANNEL_SETTLE_MS);
+    emitSweepLine("WORST", 1, worst);
 
     streaming = wasStreaming;
 }
@@ -482,6 +505,8 @@ static void handleCommand(char *line) {
         char *arg = strtok(NULL, " \t");
         if (arg != NULL && strcmp(arg, "BEST") == 0) {
             handleScanBestCommand();
+        } else if (arg != NULL && strcmp(arg, "WORST") == 0) {
+            handleScanWorstCommand();
         } else {
             printError("UNKNOWN_COMMAND");
         }

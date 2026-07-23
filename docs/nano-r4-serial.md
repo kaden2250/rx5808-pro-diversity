@@ -46,6 +46,7 @@ insensitive.
 | `CHANNEL A4`   | Tunes to a channel by band letter + number (bands: `A`, `B`, `E`, `F`, `R`, `L`; numbers `1`-`8`). |
 | `SWEEP`        | Tunes across every channel, measuring RSSI at each, and reports the 5 strongest. Returns to the previously tuned channel afterward. |
 | `SCAN BEST`    | Same as `SWEEP`, but then tunes to the single strongest channel found.       |
+| `SCAN WORST`   | Same as `SWEEP`, but tunes to the single weakest channel found - useful for finding the clearest channel to transmit on. |
 | `STREAM`       | Starts continuously streaming frequency/RSSI/timestamp for the current channel (every 50ms). |
 | `STREAM OFF`   | Stops streaming.                                                              |
 | `CHECK`        | Cross-checks that RSSI actually responds to retuning: reads RSSI on the current channel and on its true frequency neighbors (up and down, across all bands), then returns to the original channel. See below. |
@@ -87,6 +88,9 @@ SWEEP,DONE
 
 SCAN,START
 BEST,1,<channel>,<frequency_mhz>,<rssi_raw>,<rssi_percent>
+
+SCAN,START
+WORST,1,<channel>,<frequency_mhz>,<rssi_raw>,<rssi_percent>
 
 CHECK,START
 CHECK,BELOW,<channel>,<frequency_mhz>,<rssi_raw>,<rssi_percent>
@@ -136,6 +140,10 @@ the raw value.
 > SCAN BEST
 < SCAN,START
 < BEST,1,F2,5760,205,94
+
+> SCAN WORST
+< SCAN,START
+< WORST,1,E3,5665,95,4
 
 > CHECK
 < CHECK,START
