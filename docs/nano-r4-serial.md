@@ -181,11 +181,14 @@ it also works as an interactive console.
 ```sh
 pip install -r tools/requirements.txt
 
+# Windows - defaults to COM5 @ 115200, so this is enough if that's your port
+python3 tools/rx5808_serial_logger.py --stream
+
 # macOS/Linux, port name varies (check `ls /dev/tty.*` or `/dev/ttyACM*`)
 python3 tools/rx5808_serial_logger.py --port /dev/ttyACM0 --stream
 
-# Windows
-python3 tools/rx5808_serial_logger.py --port COM5 --stream
+# Any other Windows port
+python3 tools/rx5808_serial_logger.py --port COM7 --stream
 ```
 
 `--stream` sends `STREAM` automatically on connect. Files are written to

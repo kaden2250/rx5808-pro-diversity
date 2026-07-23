@@ -12,6 +12,7 @@ Also forwards anything you type at the terminal to the board as a command
 so this doubles as an interactive console.
 
 Usage:
+    python3 rx5808_serial_logger.py                    # defaults to COM5 @ 115200
     python3 rx5808_serial_logger.py --port /dev/ttyACM0
     python3 rx5808_serial_logger.py --port COM5 --baud 115200 --stream
 
@@ -121,10 +122,13 @@ def writer_loop(ser):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "--port", required=True,
-        help="Serial port the board is on (e.g. /dev/ttyACM0, COM5).",
+        "--port", default="COM5",
+        help="Serial port the board is on (e.g. /dev/ttyACM0, COM5). Default: COM5.",
     )
-    parser.add_argument("--baud", type=int, default=115200)
+    parser.add_argument(
+        "--baud", type=int, default=115200,
+        help="Serial baud rate. Default: 115200.",
+    )
     parser.add_argument(
         "--outdir", default="logs",
         help="Directory to write the .csv/.log files into (default: logs).",
