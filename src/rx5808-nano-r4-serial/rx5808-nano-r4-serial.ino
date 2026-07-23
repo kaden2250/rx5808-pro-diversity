@@ -52,7 +52,6 @@
 #define PIN_SPI_SLAVE_SELECT 11
 #define PIN_SPI_CLOCK 12
 #define PIN_RSSI A6
-#define PIN_LED LED_BUILTIN
 
 // === Serial ==================================================================
 
@@ -547,12 +546,10 @@ void setup() {
     pinMode(PIN_SPI_SLAVE_SELECT, OUTPUT);
     pinMode(PIN_SPI_CLOCK, OUTPUT);
     pinMode(PIN_RSSI, INPUT);
-    pinMode(PIN_LED, OUTPUT);
 
     digitalWrite(PIN_SPI_SLAVE_SELECT, HIGH);
     digitalWrite(PIN_SPI_CLOCK, LOW);
     digitalWrite(PIN_SPI_DATA, LOW);
-    digitalWrite(PIN_LED, LOW);
 
     // Force a 10-bit ADC reading (0-1023) to match RSSI_MIN_VAL/RSSI_MAX_VAL,
     // regardless of this core's default analogRead() resolution.
@@ -570,8 +567,6 @@ void setup() {
 void loop() {
     pollCommands(Serial, usbCommandBuffer);
     pollCommands(Serial1, uartCommandBuffer);
-
-    digitalWrite(PIN_LED, streaming ? HIGH : LOW);
 
     if (streaming && (int32_t) (millis() - nextStreamTick) >= 0) {
         emitDataLine();

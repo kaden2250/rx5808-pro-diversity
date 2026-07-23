@@ -21,7 +21,6 @@ Only one RX5808 receiver module is supported (no diversity).
 | SPI Slave Select| D11  |
 | SPI Clock       | D12  |
 | RSSI (analog)   | A6   |
-| Status LED      | Built-in LED |
 
 These match the original project's single-receiver wiring - see
 [DIY Simple - Arduino Nano](/docs/diy-arduino-nano.md) for the schematic
