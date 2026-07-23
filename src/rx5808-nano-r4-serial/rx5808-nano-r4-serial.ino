@@ -122,6 +122,13 @@ struct SweepResult {
     uint16_t rssiRaw;
 };
 
+struct ChannelRef {
+    bool valid;
+    uint8_t band;
+    uint8_t channel;
+    uint16_t freq;
+};
+
 
 // === RX5808 SPI (bit-banged) ==================================================
 //
@@ -205,6 +212,27 @@ static void tuneTo(uint8_t bandIdx, uint8_t chIdx) {
     spiSetSynthRegisterB(computeSynthRegisterB(BANDS[bandIdx].frequencies[chIdx]));
 }
 
+// Finds the channels with the next-lower and next-higher frequency compared
+// to `freq`, across every band (not just the current one) - true RF
+// neighbors, since band channel numbering doesn't run in frequency order.
+static void findFrequencyNeighbors(uint16_t freq, ChannelRef &below, ChannelRef &above) {
+    below.valid = false;
+    above.valid = false;
+
+    for (uint8_t b = 0; b < BAND_COUNT; b++) {
+        for (uint8_t c = 0; c < CHANNELS_PER_BAND; c++) {
+            uint16_t f = BANDS[b].frequencies[c];
+
+            if (f < freq && (!below.valid || f > below.freq)) {
+                below = { true, b, c, f };
+            }
+            if (f > freq && (!above.valid || f < above.freq)) {
+                above = { true, b, c, f };
+            }
+        }
+    }
+}
+
 static uint16_t readRssiRaw() {
     analogRead(PIN_RSSI); // Fake read to let the ADC settle.
     return analogRead(PIN_RSSI);
@@ -262,6 +290,18 @@ static void emitSweepLine(const char *tag, uint8_t rank, const SweepResult &r) {
         lineBuf, sizeof(lineBuf), "%s,%u,%s,%u,%u,%u",
         tag, rank, name, BANDS[r.band].frequencies[r.channel],
         r.rssiRaw, rssiToPercent(r.rssiRaw)
+    );
+    printLineBoth(lineBuf);
+}
+
+// CHECK,<role>,<channel>,<frequency_mhz>,<rssi_raw>,<rssi_percent>
+static void emitCheckLine(const char *role, uint8_t band, uint8_t channel, uint16_t raw) {
+    char name[3];
+    channelName(band, channel, name);
+
+    snprintf(
+        lineBuf, sizeof(lineBuf), "CHECK,%s,%s,%u,%u,%u",
+        role, name, BANDS[band].frequencies[channel], raw, rssiToPercent(raw)
     );
     printLineBoth(lineBuf);
 }
@@ -356,6 +396,61 @@ static void handleScanBestCommand() {
     streaming = wasStreaming;
 }
 
+// Cross-checks that RSSI is actually responding to real tuning changes: reads
+// RSSI on the current channel and on its true frequency neighbors (in
+// either direction, across all bands), then returns to the original
+// channel. This only proves anything when a known transmitter is active on
+// the current channel - with no signal present, NO_PEAK is expected and
+// does not indicate a problem.
+static void handleCheckCommand() {
+    bool wasStreaming = streaming;
+    streaming = false;
+    printLineBoth("CHECK,START");
+
+    uint8_t savedBand = currentBand;
+    uint8_t savedChannel = currentChannel;
+    uint16_t centerFreq = BANDS[savedBand].frequencies[savedChannel];
+
+    ChannelRef below, above;
+    findFrequencyNeighbors(centerFreq, below, above);
+
+    uint16_t belowRssi = 0;
+    uint16_t aboveRssi = 0;
+
+    if (below.valid) {
+        tuneTo(below.band, below.channel);
+        delay(CHANNEL_SETTLE_MS);
+        belowRssi = readRssiRaw();
+        emitCheckLine("BELOW", below.band, below.channel, belowRssi);
+    } else {
+        printLineBoth("CHECK,BELOW,NONE,0,0,0");
+    }
+
+    tuneTo(savedBand, savedChannel);
+    delay(CHANNEL_SETTLE_MS);
+    uint16_t centerRssi = readRssiRaw();
+    emitCheckLine("CENTER", savedBand, savedChannel, centerRssi);
+
+    if (above.valid) {
+        tuneTo(above.band, above.channel);
+        delay(CHANNEL_SETTLE_MS);
+        aboveRssi = readRssiRaw();
+        emitCheckLine("ABOVE", above.band, above.channel, aboveRssi);
+    } else {
+        printLineBoth("CHECK,ABOVE,NONE,0,0,0");
+    }
+
+    tuneTo(savedBand, savedChannel);
+    delay(CHANNEL_SETTLE_MS);
+
+    bool isPeak = (!below.valid || centerRssi > belowRssi)
+        && (!above.valid || centerRssi > aboveRssi)
+        && (below.valid || above.valid);
+    printLineBoth(isPeak ? "CHECK,RESULT,PEAK" : "CHECK,RESULT,NO_PEAK");
+
+    streaming = wasStreaming;
+}
+
 static void handleStreamCommand(char *arg) {
     if (arg == NULL || strcmp(arg, "ON") == 0) {
         streaming = true;
@@ -392,6 +487,8 @@ static void handleCommand(char *line) {
         }
     } else if (strcmp(cmd, "STREAM") == 0) {
         handleStreamCommand(strtok(NULL, " \t"));
+    } else if (strcmp(cmd, "CHECK") == 0) {
+        handleCheckCommand();
     } else {
         printError("UNKNOWN_COMMAND");
     }

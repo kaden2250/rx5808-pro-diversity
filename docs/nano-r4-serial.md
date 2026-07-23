@@ -48,6 +48,26 @@ insensitive.
 | `SCAN BEST`    | Same as `SWEEP`, but then tunes to the single strongest channel found.       |
 | `STREAM`       | Starts continuously streaming frequency/RSSI/timestamp for the current channel (every 50ms). |
 | `STREAM OFF`   | Stops streaming.                                                              |
+| `CHECK`        | Cross-checks that RSSI actually responds to retuning: reads RSSI on the current channel and on its true frequency neighbors (up and down, across all bands), then returns to the original channel. See below. |
+
+### About `CHECK`
+
+The RX5808's SPI link to the tuner chip is effectively write-only in
+practice - there's no reliable way to ask the chip "what channel are you
+actually on?" over SPI. `CHECK` is the practical alternative: it proves,
+using the receiver's own RF frontend, that commanding a retune actually
+changes what's being received, instead of just trusting the firmware's
+memory of what it last sent.
+
+It only tells you something when a known transmitter is active on the
+channel you're checking:
+
+- If RSSI is genuinely higher on the current channel than on both
+  neighboring frequencies, that's a real, physical confirmation the receiver
+  is tuned where you think it is - `CHECK,RESULT,PEAK`.
+- If nothing is transmitting nearby, there's nothing to peak on and
+  `CHECK,RESULT,NO_PEAK` is expected - it does not by itself mean anything
+  is wrong.
 
 ## Output format
 
@@ -67,7 +87,18 @@ SWEEP,DONE
 
 SCAN,START
 BEST,1,<channel>,<frequency_mhz>,<rssi_raw>,<rssi_percent>
+
+CHECK,START
+CHECK,BELOW,<channel>,<frequency_mhz>,<rssi_raw>,<rssi_percent>
+CHECK,CENTER,<channel>,<frequency_mhz>,<rssi_raw>,<rssi_percent>
+CHECK,ABOVE,<channel>,<frequency_mhz>,<rssi_raw>,<rssi_percent>
+CHECK,RESULT,<PEAK|NO_PEAK>
 ```
+
+`CHECK,BELOW,NONE,0,0,0` (or `ABOVE,NONE,...`) is printed instead when the
+current channel is already at the very bottom or top of the whole frequency
+table (e.g. L1 has no lower neighbor), so there's nothing to check on that
+side.
 
 `timestamp_ms` is milliseconds since boot (`millis()`), not wall-clock time -
 the Nano R4 has no RTC. Pair it with the time you receive the line on the
@@ -105,6 +136,13 @@ the raw value.
 > SCAN BEST
 < SCAN,START
 < BEST,1,F2,5760,205,94
+
+> CHECK
+< CHECK,START
+< CHECK,BELOW,F4,5800,95,4
+< CHECK,CENTER,A4,5805,201,92
+< CHECK,ABOVE,R5,5806,98,6
+< CHECK,RESULT,PEAK
 ```
 
 ## Flashing

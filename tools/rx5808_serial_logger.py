@@ -5,11 +5,11 @@ Serial logger for the rx5808-nano-r4-serial firmware
 
 Connects to the Nano R4 over serial, and for every line it sends:
   - appends it verbatim (with a host-side timestamp) to a .log file
-  - parses DATA/SWEEP/BEST lines into rows in a .csv file
+  - parses DATA/SWEEP/BEST/CHECK lines into rows in a .csv file
 
 Also forwards anything you type at the terminal to the board as a command
-(e.g. "CHANNEL A4", "STREAM", "SWEEP", "SCAN BEST"), so this doubles as an
-interactive console.
+(e.g. "CHANNEL A4", "STREAM", "SWEEP", "SCAN BEST", "CHECK"), so this
+doubles as an interactive console.
 
 Usage:
     python3 rx5808_serial_logger.py --port /dev/ttyACM0
@@ -43,8 +43,8 @@ CSV_HEADER = [
 def parse_line(line):
     """
     Parses one line of firmware output into a CSV row dict, or None if the
-    line isn't a DATA/SWEEP/BEST line (e.g. READY/OK/ERR - those still go to
-    the log file, just not the CSV).
+    line isn't a DATA/SWEEP/BEST/CHECK reading (e.g. READY/OK/ERR/START/DONE/
+    RESULT - those still go to the log file, just not the CSV).
     """
     fields = line.split(",")
     tag = fields[0]
@@ -65,6 +65,17 @@ def parse_line(line):
             "device_millis": "",
             "type": tag,
             "rank": fields[1],
+            "channel": fields[2],
+            "frequency_mhz": fields[3],
+            "rssi_raw": fields[4],
+            "rssi_percent": fields[5],
+        }
+
+    if tag == "CHECK" and len(fields) == 6 and fields[1] in ("BELOW", "CENTER", "ABOVE"):
+        return {
+            "device_millis": "",
+            "type": f"CHECK_{fields[1]}",
+            "rank": "",
             "channel": fields[2],
             "frequency_mhz": fields[3],
             "rssi_raw": fields[4],
