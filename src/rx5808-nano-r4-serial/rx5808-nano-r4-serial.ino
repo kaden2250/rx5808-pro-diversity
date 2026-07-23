@@ -473,6 +473,19 @@ static void handleCheckCommand() {
     streaming = wasStreaming;
 }
 
+static void handleHelpCommand() {
+    printLineBoth("HELP,START");
+    printLineBoth("HELP,CHANNEL <letter><num>,Tune to a channel - e.g. CHANNEL A4");
+    printLineBoth("HELP,SWEEP,Scan every channel and report the top 5 by RSSI");
+    printLineBoth("HELP,SCAN BEST,Scan every channel and tune to the strongest one found");
+    printLineBoth("HELP,SCAN WORST,Scan every channel and tune to the weakest one found");
+    printLineBoth("HELP,STREAM,Start streaming frequency/RSSI/timestamp for the current channel");
+    printLineBoth("HELP,STREAM OFF,Stop streaming");
+    printLineBoth("HELP,CHECK,Cross-check RSSI against frequency neighbors to confirm tuning");
+    printLineBoth("HELP,HELP,Show this list");
+    printLineBoth("HELP,DONE");
+}
+
 static void handleStreamCommand(char *arg) {
     if (arg == NULL || strcmp(arg, "ON") == 0) {
         streaming = true;
@@ -513,6 +526,8 @@ static void handleCommand(char *line) {
         handleStreamCommand(strtok(NULL, " \t"));
     } else if (strcmp(cmd, "CHECK") == 0) {
         handleCheckCommand();
+    } else if (strcmp(cmd, "HELP") == 0) {
+        handleHelpCommand();
     } else {
         printError("UNKNOWN_COMMAND");
     }

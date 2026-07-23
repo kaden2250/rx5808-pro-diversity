@@ -49,6 +49,7 @@ insensitive.
 | `STREAM`       | Starts continuously streaming frequency/RSSI/timestamp for the current channel (every 50ms). |
 | `STREAM OFF`   | Stops streaming.                                                              |
 | `CHECK`        | Cross-checks that RSSI actually responds to retuning: reads RSSI on the current channel and on its true frequency neighbors (up and down, across all bands), then returns to the original channel. See below. |
+| `HELP`         | Prints this command list.                                                    |
 
 ### About `CHECK`
 
@@ -96,6 +97,11 @@ CHECK,BELOW,<channel>,<frequency_mhz>,<rssi_raw>,<rssi_percent>
 CHECK,CENTER,<channel>,<frequency_mhz>,<rssi_raw>,<rssi_percent>
 CHECK,ABOVE,<channel>,<frequency_mhz>,<rssi_raw>,<rssi_percent>
 CHECK,RESULT,<PEAK|NO_PEAK>
+
+HELP,START
+HELP,<command>,<description>
+...
+HELP,DONE
 ```
 
 `CHECK,BELOW,NONE,0,0,0` (or `ABOVE,NONE,...`) is printed instead when the
