@@ -11,6 +11,10 @@ for a single receiver, with no OLED, no buttons, and no EEPROM settings.
 It is controlled entirely over serial and reports frequency, RSSI, and a
 timestamp for logging or integration with other systems.
 
+(Using a classic Nano 3.0/ATmega328 instead? See the
+[Nano V3 variant](/docs/nano-v3-serial.md) - same protocol, different
+board.)
+
 ## Hardware
 
 Only one RX5808 receiver module is supported (no diversity).

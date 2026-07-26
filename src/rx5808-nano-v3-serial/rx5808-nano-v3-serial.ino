@@ -1,13 +1,19 @@
 /*
- * rx5808-nano-r4-serial
+ * rx5808-nano-v3-serial
  *
- * Headless RX5808 receiver firmware for the Arduino Nano R4.
+ * Headless RX5808 receiver firmware for the classic Arduino Nano 3.0
+ * (ATmega328). Same serial protocol as the Nano R4 variant
+ * (rx5808-nano-r4-serial), adapted for the AVR:
  *
- * This is a stripped-down, single-receiver (no diversity) variant of
- * rx5808-pro-diversity built for boards with no OLED and no buttons. All
- * control happens over serial - both the native USB port (Serial) and the
- * hardware TX/RX pins (Serial1) are read for commands and are sent the same
- * output, so you can use whichever interface is convenient.
+ *   - One serial port only. On the Nano V3 the USB connector and the D0/D1
+ *     (RX/TX) pins are the same hardware UART, so use one or the other -
+ *     not both at once.
+ *   - Fixed strings live in flash (F()/PSTR) because the ATmega328 only has
+ *     2KB of RAM.
+ *   - No analogReadResolution() - the AVR ADC is always 10-bit (0-1023),
+ *     matching the R4 sketch's configured scale.
+ *
+ * Single receiver (no diversity), no OLED, no buttons, no EEPROM.
  *
  * SPI driver based on fs_skyrf_58g-main.c Written by Simon Chambers
  *
@@ -43,7 +49,8 @@
 
 // === Pins ====================================================================
 //
-// Defaults match the original rx5808-pro-diversity single-receiver wiring.
+// Matches the original rx5808-pro-diversity single-receiver wiring: 1k series
+// resistors in the three SPI lines, 100k pull-down from RSSI to GND.
 // Change these if your RX5808 module is wired to different pins.
 //
 // =============================================================================
@@ -51,12 +58,11 @@
 #define PIN_SPI_DATA 10
 #define PIN_SPI_SLAVE_SELECT 11
 #define PIN_SPI_CLOCK 12
-#define PIN_RSSI A6
+#define PIN_RSSI A6 // A6 is analog-only on the Nano V3, which is all we need.
 
 // === Serial ==================================================================
 
-#define USB_SERIAL_BAUD 115200
-#define UART_SERIAL_BAUD 115200 // Serial1, on the TX/RX pins.
+#define SERIAL_BAUD 115200
 
 // === Tuning ===================================================================
 
@@ -112,8 +118,7 @@ struct CommandBuffer {
     uint8_t length = 0;
 };
 
-static CommandBuffer usbCommandBuffer;
-static CommandBuffer uartCommandBuffer;
+static CommandBuffer commandBuffer;
 
 struct SweepResult {
     uint8_t band;
@@ -245,24 +250,23 @@ static uint8_t rssiToPercent(uint16_t raw) {
 
 // === Output ====================================================================
 
-static void printLineBoth(const char *msg) {
+static void printLine(const __FlashStringHelper *msg) {
     Serial.println(msg);
-    Serial1.println(msg);
 }
 
-static void printError(const char *reason) {
-    snprintf(lineBuf, sizeof(lineBuf), "ERR,%s", reason);
-    printLineBoth(lineBuf);
+static void printError(const __FlashStringHelper *reason) {
+    Serial.print(F("ERR,"));
+    Serial.println(reason);
 }
 
 static void printChannelAck() {
     char name[3];
     channelName(currentBand, currentChannel, name);
-    snprintf(
-        lineBuf, sizeof(lineBuf), "OK,CHANNEL,%s,%u",
+    snprintf_P(
+        lineBuf, sizeof(lineBuf), PSTR("OK,CHANNEL,%s,%u"),
         name, BANDS[currentBand].frequencies[currentChannel]
     );
-    printLineBoth(lineBuf);
+    Serial.println(lineBuf);
 }
 
 // DATA,<timestamp_ms>,<channel>,<frequency_mhz>,<rssi_raw>,<rssi_percent>
@@ -271,13 +275,13 @@ static void emitDataLine() {
     char name[3];
     channelName(currentBand, currentChannel, name);
 
-    snprintf(
-        lineBuf, sizeof(lineBuf), "DATA,%lu,%s,%u,%u,%u",
+    snprintf_P(
+        lineBuf, sizeof(lineBuf), PSTR("DATA,%lu,%s,%u,%u,%u"),
         (unsigned long) millis(), name,
         BANDS[currentBand].frequencies[currentChannel],
         raw, rssiToPercent(raw)
     );
-    printLineBoth(lineBuf);
+    Serial.println(lineBuf);
 }
 
 // SWEEP,<rank>,<channel>,<frequency_mhz>,<rssi_raw>,<rssi_percent>
@@ -285,12 +289,12 @@ static void emitSweepLine(const char *tag, uint8_t rank, const SweepResult &r) {
     char name[3];
     channelName(r.band, r.channel, name);
 
-    snprintf(
-        lineBuf, sizeof(lineBuf), "%s,%u,%s,%u,%u,%u",
+    snprintf_P(
+        lineBuf, sizeof(lineBuf), PSTR("%s,%u,%s,%u,%u,%u"),
         tag, rank, name, BANDS[r.band].frequencies[r.channel],
         r.rssiRaw, rssiToPercent(r.rssiRaw)
     );
-    printLineBoth(lineBuf);
+    Serial.println(lineBuf);
 }
 
 // CHECK,<role>,<channel>,<frequency_mhz>,<rssi_raw>,<rssi_percent>
@@ -298,11 +302,11 @@ static void emitCheckLine(const char *role, uint8_t band, uint8_t channel, uint1
     char name[3];
     channelName(band, channel, name);
 
-    snprintf(
-        lineBuf, sizeof(lineBuf), "CHECK,%s,%s,%u,%u,%u",
+    snprintf_P(
+        lineBuf, sizeof(lineBuf), PSTR("CHECK,%s,%s,%u,%u,%u"),
         role, name, BANDS[band].frequencies[channel], raw, rssiToPercent(raw)
     );
-    printLineBoth(lineBuf);
+    Serial.println(lineBuf);
 }
 
 
@@ -354,7 +358,7 @@ static uint8_t performSweep(SweepResult top[5], SweepResult *worstOut) {
 
 static void handleChannelCommand(char *arg) {
     if (arg == NULL || strlen(arg) < 2) {
-        printError("BAD_CHANNEL");
+        printError(F("BAD_CHANNEL"));
         return;
     }
 
@@ -362,7 +366,7 @@ static void handleChannelCommand(char *arg) {
     int channelNum = atoi(arg + 1);
 
     if (bandIdx < 0 || channelNum < 1 || channelNum > CHANNELS_PER_BAND) {
-        printError("BAD_CHANNEL");
+        printError(F("BAD_CHANNEL"));
         return;
     }
 
@@ -373,7 +377,7 @@ static void handleChannelCommand(char *arg) {
 static void handleSweepCommand() {
     bool wasStreaming = streaming;
     streaming = false;
-    printLineBoth("SWEEP,START");
+    printLine(F("SWEEP,START"));
 
     SweepResult top[5];
     uint8_t count = performSweep(top, NULL);
@@ -381,7 +385,7 @@ static void handleSweepCommand() {
     for (uint8_t i = 0; i < count; i++) {
         emitSweepLine("SWEEP", i + 1, top[i]);
     }
-    printLineBoth("SWEEP,DONE");
+    printLine(F("SWEEP,DONE"));
 
     streaming = wasStreaming;
 }
@@ -389,13 +393,13 @@ static void handleSweepCommand() {
 static void handleScanBestCommand() {
     bool wasStreaming = streaming;
     streaming = false;
-    printLineBoth("SCAN,START");
+    printLine(F("SCAN,START"));
 
     SweepResult top[5];
     uint8_t count = performSweep(top, NULL);
 
     if (count == 0) {
-        printError("NO_SIGNAL");
+        printError(F("NO_SIGNAL"));
     } else {
         tuneTo(top[0].band, top[0].channel);
         delay(CHANNEL_SETTLE_MS);
@@ -408,7 +412,7 @@ static void handleScanBestCommand() {
 static void handleScanWorstCommand() {
     bool wasStreaming = streaming;
     streaming = false;
-    printLineBoth("SCAN,START");
+    printLine(F("SCAN,START"));
 
     SweepResult top[5];
     SweepResult worst;
@@ -430,7 +434,7 @@ static void handleScanWorstCommand() {
 static void handleCheckCommand() {
     bool wasStreaming = streaming;
     streaming = false;
-    printLineBoth("CHECK,START");
+    printLine(F("CHECK,START"));
 
     uint8_t savedBand = currentBand;
     uint8_t savedChannel = currentChannel;
@@ -448,7 +452,7 @@ static void handleCheckCommand() {
         belowRssi = readRssiRaw();
         emitCheckLine("BELOW", below.band, below.channel, belowRssi);
     } else {
-        printLineBoth("CHECK,BELOW,NONE,0,0,0");
+        printLine(F("CHECK,BELOW,NONE,0,0,0"));
     }
 
     tuneTo(savedBand, savedChannel);
@@ -462,7 +466,7 @@ static void handleCheckCommand() {
         aboveRssi = readRssiRaw();
         emitCheckLine("ABOVE", above.band, above.channel, aboveRssi);
     } else {
-        printLineBoth("CHECK,ABOVE,NONE,0,0,0");
+        printLine(F("CHECK,ABOVE,NONE,0,0,0"));
     }
 
     tuneTo(savedBand, savedChannel);
@@ -471,34 +475,38 @@ static void handleCheckCommand() {
     bool isPeak = (!below.valid || centerRssi > belowRssi)
         && (!above.valid || centerRssi > aboveRssi)
         && (below.valid || above.valid);
-    printLineBoth(isPeak ? "CHECK,RESULT,PEAK" : "CHECK,RESULT,NO_PEAK");
+    if (isPeak) {
+        printLine(F("CHECK,RESULT,PEAK"));
+    } else {
+        printLine(F("CHECK,RESULT,NO_PEAK"));
+    }
 
     streaming = wasStreaming;
 }
 
 static void handleHelpCommand() {
-    printLineBoth("HELP,START");
-    printLineBoth("HELP,CHANNEL <letter><num>,Tune to a channel - e.g. CHANNEL A4");
-    printLineBoth("HELP,SWEEP,Scan every channel and report the top 5 by RSSI");
-    printLineBoth("HELP,SCAN BEST,Scan every channel and tune to the strongest one found");
-    printLineBoth("HELP,SCAN WORST,Scan every channel and tune to the weakest one found");
-    printLineBoth("HELP,STREAM,Start streaming frequency/RSSI/timestamp for the current channel");
-    printLineBoth("HELP,STREAM OFF,Stop streaming");
-    printLineBoth("HELP,CHECK,Cross-check RSSI against frequency neighbors to confirm tuning");
-    printLineBoth("HELP,HELP,Show this list");
-    printLineBoth("HELP,DONE");
+    printLine(F("HELP,START"));
+    printLine(F("HELP,CHANNEL <letter><num>,Tune to a channel - e.g. CHANNEL A4"));
+    printLine(F("HELP,SWEEP,Scan every channel and report the top 5 by RSSI"));
+    printLine(F("HELP,SCAN BEST,Scan every channel and tune to the strongest one found"));
+    printLine(F("HELP,SCAN WORST,Scan every channel and tune to the weakest one found"));
+    printLine(F("HELP,STREAM,Start streaming frequency/RSSI/timestamp for the current channel"));
+    printLine(F("HELP,STREAM OFF,Stop streaming"));
+    printLine(F("HELP,CHECK,Cross-check RSSI against frequency neighbors to confirm tuning"));
+    printLine(F("HELP,HELP,Show this list"));
+    printLine(F("HELP,DONE"));
 }
 
 static void handleStreamCommand(char *arg) {
-    if (arg == NULL || strcmp(arg, "ON") == 0) {
+    if (arg == NULL || strcmp_P(arg, PSTR("ON")) == 0) {
         streaming = true;
         nextStreamTick = millis();
-        printLineBoth("OK,STREAM,ON");
-    } else if (strcmp(arg, "OFF") == 0) {
+        printLine(F("OK,STREAM,ON"));
+    } else if (strcmp_P(arg, PSTR("OFF")) == 0) {
         streaming = false;
-        printLineBoth("OK,STREAM,OFF");
+        printLine(F("OK,STREAM,OFF"));
     } else {
-        printError("BAD_STREAM_ARG");
+        printError(F("BAD_STREAM_ARG"));
     }
 }
 
@@ -512,46 +520,46 @@ static void handleCommand(char *line) {
         return;
     }
 
-    if (strcmp(cmd, "CHANNEL") == 0) {
+    if (strcmp_P(cmd, PSTR("CHANNEL")) == 0) {
         handleChannelCommand(strtok(NULL, " \t"));
-    } else if (strcmp(cmd, "SWEEP") == 0) {
+    } else if (strcmp_P(cmd, PSTR("SWEEP")) == 0) {
         handleSweepCommand();
-    } else if (strcmp(cmd, "SCAN") == 0) {
+    } else if (strcmp_P(cmd, PSTR("SCAN")) == 0) {
         char *arg = strtok(NULL, " \t");
-        if (arg != NULL && strcmp(arg, "BEST") == 0) {
+        if (arg != NULL && strcmp_P(arg, PSTR("BEST")) == 0) {
             handleScanBestCommand();
-        } else if (arg != NULL && strcmp(arg, "WORST") == 0) {
+        } else if (arg != NULL && strcmp_P(arg, PSTR("WORST")) == 0) {
             handleScanWorstCommand();
         } else {
-            printError("UNKNOWN_COMMAND");
+            printError(F("UNKNOWN_COMMAND"));
         }
-    } else if (strcmp(cmd, "STREAM") == 0) {
+    } else if (strcmp_P(cmd, PSTR("STREAM")) == 0) {
         handleStreamCommand(strtok(NULL, " \t"));
-    } else if (strcmp(cmd, "CHECK") == 0) {
+    } else if (strcmp_P(cmd, PSTR("CHECK")) == 0) {
         handleCheckCommand();
-    } else if (strcmp(cmd, "HELP") == 0) {
+    } else if (strcmp_P(cmd, PSTR("HELP")) == 0) {
         handleHelpCommand();
     } else {
-        printError("UNKNOWN_COMMAND");
+        printError(F("UNKNOWN_COMMAND"));
     }
 }
 
-static void pollCommands(Stream &port, CommandBuffer &buf) {
-    while (port.available()) {
-        char c = port.read();
+static void pollCommands() {
+    while (Serial.available()) {
+        char c = Serial.read();
 
         if (c == '\r') {
             continue;
         }
 
         if (c == '\n') {
-            buf.data[buf.length] = '\0';
-            if (buf.length > 0) {
-                handleCommand(buf.data);
+            commandBuffer.data[commandBuffer.length] = '\0';
+            if (commandBuffer.length > 0) {
+                handleCommand(commandBuffer.data);
             }
-            buf.length = 0;
-        } else if (buf.length < sizeof(buf.data) - 1) {
-            buf.data[buf.length++] = c;
+            commandBuffer.length = 0;
+        } else if (commandBuffer.length < sizeof(commandBuffer.data) - 1) {
+            commandBuffer.data[commandBuffer.length++] = c;
         }
     }
 }
@@ -563,28 +571,23 @@ void setup() {
     pinMode(PIN_SPI_DATA, OUTPUT);
     pinMode(PIN_SPI_SLAVE_SELECT, OUTPUT);
     pinMode(PIN_SPI_CLOCK, OUTPUT);
-    pinMode(PIN_RSSI, INPUT);
+    // No pinMode for PIN_RSSI: A6 on the Nano V3 is an analog-only input
+    // with no digital pin circuitry behind it.
 
     digitalWrite(PIN_SPI_SLAVE_SELECT, HIGH);
     digitalWrite(PIN_SPI_CLOCK, LOW);
     digitalWrite(PIN_SPI_DATA, LOW);
 
-    // Force a 10-bit ADC reading (0-1023) to match RSSI_MIN_VAL/RSSI_MAX_VAL,
-    // regardless of this core's default analogRead() resolution.
-    analogReadResolution(10);
-
-    Serial.begin(USB_SERIAL_BAUD);
-    Serial1.begin(UART_SERIAL_BAUD);
+    Serial.begin(SERIAL_BAUD);
 
     tuneTo(0, 0); // Default to channel A1 on boot.
     delay(CHANNEL_SETTLE_MS);
 
-    printLineBoth("READY,rx5808-nano-r4-serial");
+    printLine(F("READY,rx5808-nano-v3-serial"));
 }
 
 void loop() {
-    pollCommands(Serial, usbCommandBuffer);
-    pollCommands(Serial1, uartCommandBuffer);
+    pollCommands();
 
     if (streaming && (int32_t) (millis() - nextStreamTick) >= 0) {
         emitDataLine();

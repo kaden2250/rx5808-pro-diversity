@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
-Serial logger for the rx5808-nano-r4-serial firmware
-(src/rx5808-nano-r4-serial/rx5808-nano-r4-serial.ino).
+Serial logger for the headless RX5808 serial firmwares
+(src/rx5808-nano-r4-serial and src/rx5808-nano-v3-serial - both speak the
+same protocol).
 
 Connects to the Nano R4 over serial, and for every line it sends:
   - appends it verbatim (with a host-side timestamp) to a .log file
