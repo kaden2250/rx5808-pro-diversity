@@ -10,7 +10,6 @@
 #include "timer.h"
 
 static void updateRssiLimits();
-static void writeSerialData();
 
 
 namespace Receiver {
@@ -31,9 +30,6 @@ namespace Receiver {
 
     static Timer rssiStableTimer = Timer(MIN_TUNE_TIME);
     static Timer rssiLogTimer = Timer(RECEIVER_LAST_DELAY);
-    #ifdef USE_SERIAL_OUT
-        static Timer serialLogTimer = Timer(25);
-    #endif
 
 
     void setChannel(uint8_t channel)
@@ -187,35 +183,9 @@ namespace Receiver {
         if (rssiStableTimer.hasTicked()) {
             updateRssi();
 
-            #ifdef USE_SERIAL_OUT
-                writeSerialData();
-            #endif
-
             #ifdef USE_DIVERSITY
                 switchDiversity();
             #endif
         }
     }
 }
-
-
-#ifdef USE_SERIAL_OUT
-
-#include "pstr_helper.h"
-
-static void writeSerialData() {
-    if (Receiver::serialLogTimer.hasTicked()) {
-        Serial.print(Receiver::activeChannel, DEC);
-        Serial.print(PSTR2("\t"));
-        Serial.print(Receiver::rssiA, DEC);
-        Serial.print(PSTR2("\t"));
-        Serial.print(Receiver::rssiARaw, DEC);
-        Serial.print(PSTR2("\t"));
-        Serial.print(Receiver::rssiB, DEC);
-        Serial.print(PSTR2("\t"));
-        Serial.println(Receiver::rssiBRaw, DEC);
-
-        Receiver::serialLogTimer.reset();
-    }
-}
-#endif

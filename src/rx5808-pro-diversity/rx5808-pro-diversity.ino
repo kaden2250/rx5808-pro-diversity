@@ -42,6 +42,7 @@ SOFTWARE.
 #include "receiver_spi.h"
 #include "buttons.h"
 #include "state.h"
+#include "serial_link.h"
 
 #include "ui.h"
 
@@ -72,7 +73,7 @@ void setup()
         Serial.begin(9600);
     #endif
     #ifdef USE_SERIAL_OUT
-        Serial.begin(250000);
+        SerialLink::setup();
     #endif
 
     // Setup complete.
@@ -124,6 +125,10 @@ void loop() {
     StateMachine::update();
     Ui::update();
     EepromSettings.update();
+
+    #ifdef USE_SERIAL_OUT
+        SerialLink::update();
+    #endif
 
     if (
         StateMachine::currentState != StateMachine::State::SCREENSAVER

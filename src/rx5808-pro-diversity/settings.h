@@ -86,7 +86,11 @@ SOFTWARE.
 #define USE_DIVERSITY_FAST_SWITCHING
 
 //#define USE_IR_EMITTER
-//#define USE_SERIAL_OUT // Not compatible with IR emitter.
+
+// USB serial command/telemetry interface at 115200 baud. Lets you tune
+// channels and stream RSSI over USB while the normal screen/button UI keeps
+// working. See docs/serial-usb.md. Not compatible with the IR emitter.
+#define USE_SERIAL_OUT
 
 // You can use any of the arduino analog pins to measure the voltage of the
 // battery. See additional configuration below.

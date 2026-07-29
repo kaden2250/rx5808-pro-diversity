@@ -81,10 +81,31 @@ For more information on specific hardware implementations:
 1. [OLED Version - Arduino Nano](/docs/oled-arduino-nano.md)
 3. [rx5808 SPI modification](/docs/rx5808-spi-mod.md)
 6. [Voltage Monitoring](/docs/voltage-monitoring.md)
+7. [Arduino Nano R4 - Headless Serial Firmware](/docs/nano-r4-serial.md)
+8. [Arduino Nano V3 - Headless Serial Firmware](/docs/nano-v3-serial.md)
 
 # Firmware
 The firmware is constantly being improved please refer to the release history for more detailed information on improvements.
 [Release History](https://github.com/sheaivey/rx5808-pro-diversity/releases)
+
+There are also two separate, minimal headless firmwares that drop the
+OLED/buttons/EEPROM entirely in favor of a serial command interface that
+streams frequency, RSSI, and a timestamp, for a single receiver:
+
+- `src/rx5808-nano-r4-serial` for the **Arduino Nano R4** (non-AVR;
+  commands over USB and TX/RX simultaneously) - see
+  [Arduino Nano R4 - Headless Serial Firmware](/docs/nano-r4-serial.md)
+- `src/rx5808-nano-v3-serial` for the classic **Arduino Nano 3.0**
+  (ATmega328; one shared serial port) - see
+  [Arduino Nano V3 - Headless Serial Firmware](/docs/nano-v3-serial.md)
+
+Both speak the same protocol, so `tools/rx5808_serial_logger.py` works
+with either.
+
+If you want to keep the full original firmware - screen, buttons,
+diversity and all - and just add serial on top, the main firmware has a
+USB serial interface too (`USE_SERIAL_OUT` in `settings.h`). See
+[USB Serial Interface](/docs/serial-usb.md).
 
 # Contributing
 Any contributions are welcome!
