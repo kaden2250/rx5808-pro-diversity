@@ -15,9 +15,25 @@
 #include "timer.h"
 
 
-void *operator new(size_t size, void *ptr){
-  return ptr;
-}
+// Placement new, used below to construct state handlers into a shared static
+// buffer.
+//
+// Arduino AVR core 1.8.x and later provide this in <new.h>; older cores did
+// not, so we define it ourselves only when the core doesn't. Defining it
+// unconditionally is a "multiple definition of operator new(unsigned int,
+// void*)" link error on current cores.
+#if defined(__has_include)
+    #if __has_include(<new.h>)
+        #include <new.h>
+        #define HAS_CORE_PLACEMENT_NEW
+    #endif
+#endif
+
+#ifndef HAS_CORE_PLACEMENT_NEW
+    void *operator new(size_t size, void *ptr) {
+        return ptr;
+    }
+#endif
 
 #define MAX(a, b) (a > b ? a : b)
 #define STATE_BUFFER_SIZE \
