@@ -102,6 +102,11 @@ streams frequency, RSSI, and a timestamp, for a single receiver:
 Both speak the same protocol, so `tools/rx5808_serial_logger.py` works
 with either.
 
+If you want to keep the full original firmware - screen, buttons,
+diversity and all - and just add serial on top, the main firmware has a
+USB serial interface too (`USE_SERIAL_OUT` in `settings.h`). See
+[USB Serial Interface](/docs/serial-usb.md).
+
 # Contributing
 Any contributions are welcome!
 
